@@ -1,18 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>图片风格提示词生成器</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="container">
-    <h1>图片风格提示词生成器（免费版）</h1>
-    <input type="file" id="imageInput" accept="image/*">
-    <button id="generateBtn">生成提示词</button>
-    <img id="preview" src="" alt="预览" style="max-width:300px; display:block; margin:10px 0;">
-    <pre id="result"></pre>
-  </div>
-  <script src="script.js"></script>
-</body>
-</html>
+import { useState } from "react";
+
+export default function IndexPage() {
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImage(reader.result);
+      setPreview(reader.result);
+      setResult("");
+      setError("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const generatePrompt = async () => {
+    if (!image) {
+      setError("请先上传图片");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult("");
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageBase64: image }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "生成失败");
+      }
+
+      setResult(data.prompt);
+    } catch (err) {
+      setError(err.message || "生成失败，请检查网络或接口");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f5f5", padding: 24 }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", padding: 24, borderRadius: 12 }}>
+        <h1 style={{ fontSize: 22, marginBottom: 16 }}>图片风格提示词生成器（免费识图版）</h1>
+
+        <input type="file" accept="image/*" onChange={handleUpload} />
+
+        {preview && (
+          <div style={{ marginTop: 16 }}>
+            <img src={preview} alt="preview
