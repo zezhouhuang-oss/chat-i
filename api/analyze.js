@@ -8,7 +8,6 @@ export default async function handler(req, res) {
 
   try {
     // ---- 模拟分析图片 ----
-    // 随机生成主体 / 场景 / 风格 / 颜色 / 构图
     const subjects = ["单人女性", "双人对峙", "猫咪", "狗狗", "建筑"];
     const scenes = ["夜晚室内", "雨天街头", "阳光公园", "咖啡厅", "海边"];
     const styles = ["写实", "影视感", "卡通风", "复古风", "商业海报"];
@@ -51,9 +50,7 @@ ${mockResult.lighting}
 【细节补充】
 ${mockResult.details}`;
 
-    // 模拟延迟
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
+    await new Promise(resolve => setTimeout(resolve, 300));
     res.status(200).json({ result: resultText });
 
   } catch (error) {
