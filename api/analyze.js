@@ -1,60 +1,64 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "4mb", // 防止 413
+    },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "只支持 POST 请求" });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { imageBase64 } = req.body;
-  if (!imageBase64) return res.status(400).json({ error: "请上传图片" });
-
   try {
-    // ---- 模拟分析图片 ----
-    const subjects = ["单人女性", "双人对峙", "猫咪", "狗狗", "建筑"];
-    const scenes = ["夜晚室内", "雨天街头", "阳光公园", "咖啡厅", "海边"];
-    const styles = ["写实", "影视感", "卡通风", "复古风", "商业海报"];
-    const colors = ["低饱和灰色", "高饱和红黑", "明亮温暖色", "冷蓝色调", "柔和粉色"];
-    const compositions = ["特写", "中景", "远景", "俯视", "平视"];
-    const lightings = ["自然光", "单侧光", "柔光", "高对比光影"];
-
-    function pick(arr) {
-      return arr[Math.floor(Math.random() * arr.length)];
+    const { imageBase64 } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: "No image provided" });
     }
 
-    const mockResult = {
-      subject: pick(subjects),
-      scene: pick(scenes),
-      style: pick(styles),
-      color: pick(colors),
-      composition: pick(compositions),
-      lighting: pick(lightings),
-      details: "背景简洁，人物清晰，画面干净"
-    };
+    // 去掉 data:image/...;base64,
+    const base64 = imageBase64.split(",")[1];
+    const buffer = Buffer.from(base64, "base64");
 
-    const resultText = `【主体内容】
-${mockResult.subject}
+    // Hugging Face BLIP 图像描述模型
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HF_API_KEY}`,
+          "Content-Type": "application/octet-stream",
+        },
+        body: buffer,
+      }
+    );
 
-【场景设定】
-${mockResult.scene}
+    const result = await response.json();
 
-【整体风格】
-${mockResult.style}
+    if (!Array.isArray(result) || !result[0]?.generated_text) {
+      return res.status(500).json({ error: "Model failed", detail: result });
+    }
 
-【色调与色彩】
-${mockResult.color}
+    const caption = result[0].generated_text;
 
-【构图与视角】
-${mockResult.composition}
+    // 👉 把“描述”整理成提示词结构
+    const prompt = `
+主体内容：
+${caption}
 
-【光影与质感】
-${mockResult.lighting}
+风格建议：
+cinematic lighting, high quality, sharp focus
 
-【细节补充】
-${mockResult.details}`;
+构图：
+close-up or medium shot, strong subject focus
 
-    await new Promise(resolve => setTimeout(resolve, 300));
-    res.status(200).json({ result: resultText });
+色彩：
+balanced tones, commercial poster style
+`.trim();
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "服务器内部错误" });
+    res.status(200).json({ prompt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }
